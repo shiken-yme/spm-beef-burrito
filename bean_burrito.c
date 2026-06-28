@@ -3,6 +3,7 @@
 #include <main.h>
 #include <npcdata.h>
 #include <spm_system.h>
+#include <calc_rng.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -127,10 +128,11 @@ char * itemGetName(s32 itemId) {
 char * condition_types[4] = {"First 3 Piranhas", "Center 2D Piranhas", "Center 3D Piranhas", "No Piranhas"};
 
 bool beanBurrito() {
+    gp->iterationNum += 1;
     RANDOM_SEED = gp->seed;
     frand(100); // Call RNG once to increment RANDOM_SEED
     gp->seed = RANDOM_SEED;
-    gp->iterationNum += 1;
+    gp->seeds[gp->iterationNum] = RANDOM_SEED;
     getCurLoopData()->itemCnt = 0;
     getCurLoopData()->piranhasDroppedAnything = false;
     getCurLoopData()->condition_type = gp->curLoop;
@@ -141,7 +143,7 @@ bool beanBurrito() {
         getCurLoopData()->sellValue = sellValue;
         if (getCurLoopData()->piranhasDroppedAnything == false) {
             getCurLoopData()->condition_type = 3;
-            //printf("Seed %X found in %d advances. Condition: Kill %s\n", gp->seed, gp->iterationNum, condition_types[3]);
+            // printf("Seed %X found in %d advances. Condition: Kill %s\n", gp->seed, gp->iterationNum, condition_types[3]);
         }
         /*else {
             printf("Seed %X found in %d advances. Condition: Kill %s\n", gp->seed, gp->iterationNum, condition_types[gp->curLoop]);

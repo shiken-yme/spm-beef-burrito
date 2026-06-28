@@ -25,6 +25,7 @@ typedef struct {
     u32 iterationNum;
     s32 seed;
     s32 startingSeed;
+    s32 * seeds;
     s32 curLoop;
     SFLoopData Loop[3];
 } SFGlobals;

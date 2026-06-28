@@ -10,7 +10,7 @@ void __assert2(const char * filename, s32 line, const char * assertion, const ch
 
 #define assert(condition, message)                                                                             \
     if (!(condition)) {                                                                                        \
-        printf("Assertion \"%s\" failed in %s at line %d.\n%s", #condition, __FILE_NAME__, __LINE__, message); \
+        printf("[Error]\nAssertion \"%s\" failed in %s at line %d.\n%s", #condition, __FILE_NAME__, __LINE__, message); \
         abort();                                                                                               \
     }
 

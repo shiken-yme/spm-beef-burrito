@@ -1,4 +1,5 @@
 #include <bean_burrito.h>
+#include <calc_rng.h>
 #include <common.h>
 #include <main.h>
 #include <math.h>
@@ -7,7 +8,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <calc_rng.h>
 
 #define INPUT_MAX 1024
 
@@ -18,66 +18,8 @@ SFLoopData * getCurLoopData() {
     return &gp->Loop[gp->curLoop];
 }
 
-void trim(char * input) {
-    for (s32 i = 0; i < strlen(input); i += 1) {
-        if (input[i] == ',')
-            input[i + 1] = '\n';
-    }
-    return;
-}
-
-bool strChkZero(char * input) {
-    if (strcmp(input, "0\n") == 0)
-        return true;
-    return false;
-}
-
-void takeInput(char * input, char * save) {
-    fgets(input, INPUT_MAX, stdin);
-    if (save != NULL && strChkZero(input) == false) {
-        strcpy(save, input);
-        // printf("Debug: save = %s", save);
-    }
-    return;
-}
-
-s32 npcNameToTribeId(char * name) {
-    for (s32 i = 0; npcData[i].name != NULL; i += 1) {
-        if (strcmp(name, npcData[i].name) == 0)
-            return npcData[i].tribeId;
-    }
-    assertf(false, "\"%s\" failed to return a valid tribe ID", name);
-    return -1;
-}
-
-void createTribeList(char * input, s32 * list, s32 * counter) {
-    char * curNpc = strtok(input, ",");
-    for (s32 i = 0; curNpc != NULL; i += 1) {
-        s32 tribeId = atoi(curNpc);
-        if (tribeId == 0 && strcmp(curNpc, "0") != 0)
-            tribeId = npcNameToTribeId(curNpc);
-        list[i] = tribeId;
-        *counter += 1;
-        printf("%d\n", tribeId);
-        curNpc = strtok(NULL, ",");
-    }
-    printf("strtok process complete\n");
-    return;
-}
-
-void createGenericList(char * input, s32 * list, s32 * counter) {
-    trim(input);
-    char * curIn = strtok(input, ",\n");
-    for (s32 i = 0; curIn != NULL; i += 1) {
-        s32 result = atoi(curIn);
-        list[i] = result;
-        *counter += 1;
-        curIn = strtok(NULL, ",\n");
-    }
-    return;
-}
-
 s32 main() {
+    // Set up initial data
     char input[INPUT_MAX];
     gp->sellValueThreshold = 100;
     gp->enemyIdxBlacklistCnt = 6;
@@ -85,9 +27,16 @@ s32 main() {
     memcpy(gp->enemyList, enemy_list, sizeof(enemy_list));
     gp->enemyListCnt = 27;
     s32 iteration_blacklist[3][6] = {{1, 2, 3, 6, 7, 8}, {4, 5, 6, 7, 8, 9}, {1, 2, 3, 4, 5, 9}};
+retry:
+    // Find current seed
     gp->startingSeed = getCurRng();
     sscanf(input, "%x", &gp->startingSeed);
+    gp->seeds = malloc(sizeof(s32) * MAX_CANDIDATES);
+    gp->seeds[0] = gp->startingSeed;
+    // Once current seed is determined, find the *first* available seed that matches our desired parameters
+    // Checks for 3 separate enemy blacklist conditions & accounts for the condition not being necessary
     bool exec = false;
+    memset(gp->seeds, 0, (sizeof(s32) * MAX_CANDIDATES));
     for (gp->curLoop = 0; gp->curLoop < 3; gp->curLoop += 1) {
         memcpy(&gp->enemyIdxBlacklist, iteration_blacklist[gp->curLoop], (sizeof(s32) * 6));
         gp->seed = gp->startingSeed;
@@ -97,6 +46,7 @@ s32 main() {
             exec = beanBurrito();
         } while (!exec);
     }
+    // Determine lowest advance num; if tied, take the one with the highest SV; if tied, probably the same seed so lower iteration ID takes priority
     s32 chosen_n = 0;
     for (s32 i = 1; i < 3; i += 1) {
         if (gp->Loop[chosen_n].advanceNum > gp->Loop[i].advanceNum)
@@ -106,13 +56,67 @@ s32 main() {
                 chosen_n = i;
         }
     }
-    printf("\nMost optimal seed is %X - %d advances away. Kill %s.\n", gp->Loop[chosen_n].seed, gp->Loop[chosen_n].advanceNum, condition_types[gp->Loop[chosen_n].condition_type]);
-    printf("SV of %d coins. Items (%d): ", gp->Loop[chosen_n].sellValue, gp->Loop[chosen_n].itemCnt);
-    for (s32 i = 0; i < gp->Loop[chosen_n].itemCnt; i += 1) {
-        if (i != (gp->Loop[chosen_n].itemCnt - 1))
-            printf("%s, ", itemGetName(gp->Loop[chosen_n].itemList[i]));
-        else
-            printf("%s\n", itemGetName(gp->Loop[chosen_n].itemList[i]));
+    SFLoopData * data = &gp->Loop[chosen_n];
+    while (true) {
+        s32 halfAdvNum = data->advanceNum / 2;
+        // Add the next 1/2 iterationNum seeds to the array in case of overshooting
+        // Overshooting past this threshold will result in a new seed being calculated
+        for (s32 i = 0; i < halfAdvNum; i += 1) {
+            frand(100); // Call RNG once to increment RANDOM_SEED
+            gp->seeds[data->advanceNum + i + 1] = RANDOM_SEED;
+        }
+        printf("\nNearest seed is %X - %d advances away. Kill %s.\n", data->seed, data->advanceNum, condition_types[data->condition_type]);
+        printf("SV of %d coins. Items (%d): ", data->sellValue, data->itemCnt);
+        for (s32 i = 0; i < data->itemCnt; i += 1) {
+            if (i != (data->itemCnt - 1))
+                printf("%s, ", itemGetName(data->itemList[i]));
+            else
+                printf("%s\n\n", itemGetName(data->itemList[i]));
+        }
+        s32 stylish2s = 0, stylishes = 0, bounces = 0, flips = 0, n = data->advanceNum - 7;
+        while ((n - 503) >= 0) {
+            stylishes += 1;
+            n -= 503;
+        }
+        // Check if stylish 2x is necessary - should reduce bounce & flip num
+        if (n >= 272 && stylishes >= 1) {
+            stylishes -= 1;
+            stylish2s = 1;
+            n -= 272;
+        }
+        while ((n - 13) >= 0) {
+            bounces += 1;
+            n -= 13;
+        }
+        while ((n - 1) >= 0) {
+            flips += 1;
+            n -= 1;
+        }
+        printf("%d stylish 2x combo, %d stylish bounces, %d bounces\nFlip to go past wall\n%d flips, then enter door\n\n", stylish2s, stylishes, bounces, flips);
+        printf("Refine RNG to below %d advances out for different results.\n", halfAdvNum);
+        gp->seed = getCurRngLimited(&gp->seeds[data->advanceNum - halfAdvNum], data->advanceNum);
+        if (gp->seed == -1) {
+            gp->startingSeed = gp->seeds[data->advanceNum + halfAdvNum];
+            printf("A fatal error has occurred; you either undershot or overshot by a lot.\nPlease recalculate your RNG.\n");
+            goto retry;
+        }
+        memset(gp->seeds, 0, (sizeof(s32) * MAX_CANDIDATES));
+        gp->seeds[0] = gp->seed;
+        gp->iterationNum = 0;
+        gp->curLoop = chosen_n;
+        // s32 savedAdvNum = data->advanceNum;
+        memcpy(&gp->enemyIdxBlacklist, iteration_blacklist[gp->curLoop], (sizeof(s32) * 6));
+        exec = false;
+        do {
+            exec = beanBurrito();
+        } while (!exec);
+        /*if (savedAdvNum < data->advanceNum) {
+            gp->startingSeed = gp->seeds[data->advanceNum + halfAdvNum];
+            printf("A fatal error has occurred; you either undershot or overshot by a lot.\nPlease recalculate your RNG.\n");
+            goto retry;
+        }*/
+        data = &gp->Loop[gp->curLoop];
     }
+    free(gp->seeds);
     return 0;
 }
