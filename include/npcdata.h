@@ -21,7 +21,6 @@ typedef struct {
     s32 sellValue;
 } ItemData;
 
-extern char * shopTypes[];
 extern NPCData npcData[];
 extern ItemData itemDataTable[];
 extern ItemData yoldTownShopOverrides[];

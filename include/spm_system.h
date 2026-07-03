@@ -25,3 +25,5 @@ extern s32 RANDOM_SEED;
 s32 rand();
 s32 irand(s32 max);
 f32 frand(f32 limit);
+
+void printArray(char * pretext, s32 * array, s32 size);

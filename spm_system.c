@@ -13,7 +13,7 @@ void __assert2(const char * filename, s32 line, const char * assertion, const ch
     va_start(args, message);
     vsprintf(buf, message, args);
     va_end(args);
-    printf("[Error]\nAssertion \"%s\" failed in %s at line %d.\n%s", assertion, __FILE_NAME__, __LINE__, buf);
+    printf("[Error]\nAssertion \"%s\" failed in %s at line %d.\n%s", assertion, filename, line, buf);
     return;
 }
 
@@ -73,4 +73,17 @@ s32 irand(s32 max) {
 
 f32 frand(f32 limit) {
     return limit * _frand();
+}
+
+// I don't want to make another file for basic utility functions so I'm throwing some here
+
+void printArray(char * pretext, s32 * array, s32 size) {
+    printf("%s: {", pretext);
+    for (s32 i = 0; i < size; i += 1) {
+        if (i + 1 == size)
+            printf("%d}\n", array[i]);
+        else
+            printf("%d, ", array[i]);
+    }
+    return;
 }

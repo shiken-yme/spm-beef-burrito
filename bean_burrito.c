@@ -1,14 +1,24 @@
 #include <bean_burrito.h>
+#include <calc_rng.h>
 #include <common.h>
+#include <config.h>
 #include <main.h>
 #include <npcdata.h>
 #include <spm_system.h>
-#include <calc_rng.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
 // Created by Yme
+
+char * itemGetName(s32 itemId) {
+    for (s32 i = 0; i < gp->itemDataNum; i += 1) {
+        if (itemId == gp->itemData[i].itemId)
+            return gp->itemData[i].name;
+    }
+    assertf(false, "Item name for ID %d not found", itemId);
+    return NULL;
+}
 
 bool npcChkBlacklisted(s32 tribeId, s32 index) {
     for (s32 i = 0; i < gp->tribeBlacklistCnt; i += 1) {
@@ -44,16 +54,14 @@ s32 npcGetDropItem(NPCData * data, s32 index) {
             if (rolledWt < 0)
                 break;
         }
-        if (data->tribeId == 77)
-            getCurLoopData()->piranhasDroppedAnything = true;
         return data->items[itemIdx].itemId;
     }
 }
 
 NPCData * npcGetData(s32 tribeId) {
-    for (s32 i = 0; npcData[i].name != NULL; i += 1) {
-        if (tribeId == npcData[i].tribeId)
-            return &npcData[i];
+    for (s32 i = 0; i < gp->npcDataNum; i += 1) {
+        if (tribeId == gp->npcData[i].tribeId)
+            return &gp->npcData[i];
     }
     assertf(false, "NPC data ptr for tribe %d not found", tribeId);
     return NULL;
@@ -67,9 +75,9 @@ s32 itemGetSellValue(s32 item) {
         }
     }
     if (sv == 0) {
-        for (s32 i = 0; itemDataTable[i].itemId != -1; i += 1) {
-            if (itemDataTable[i].itemId == item) {
-                sv = itemDataTable[i].sellValue;
+        for (s32 i = 0; i < gp->itemDataNum; i += 1) {
+            if (gp->itemData[i].itemId == item) {
+                sv = gp->itemData[i].sellValue;
             }
         }
     }
@@ -89,17 +97,19 @@ s32 listGetLowestVal(s32 * list, s32 listSize, s32 * index) {
 }
 
 s32 mapCalcSellValue() {
-    s32 sellValue = 0, tribeId = 0, svList[10];
+    s32 sellValue = 0, tribeId = 0, svList[cfg->maxItems];
     for (s32 i = 0; i < gp->enemyListCnt; i += 1) {
         tribeId = gp->enemyList[i];
         s32 itemId = npcGetDropItem(npcGetData(tribeId), i);
-        if (itemId != 0)
+        if (itemId != 0) {
             getCurLoopData()->itemList[getCurLoopData()->itemCnt++] = itemId;
+            // printf("Iteration %d: enemy %d drops item %s\n", gp->iterationNum, tribeId, itemGetName(itemId));
+        }
     }
     for (s32 i = 0; i < getCurLoopData()->itemCnt; i += 1) {
-        if (i >= 10) {
+        if (i >= cfg->maxItems) {
             s32 lowestSvIdx;
-            s32 lowestSv = listGetLowestVal(svList, 10, &lowestSvIdx);
+            s32 lowestSv = listGetLowestVal(svList, cfg->maxItems, &lowestSvIdx);
             if (lowestSv > itemGetSellValue(getCurLoopData()->itemList[i])) {
                 getCurLoopData()->itemList[lowestSvIdx] = getCurLoopData()->itemList[i];
                 svList[lowestSvIdx] = itemGetSellValue(getCurLoopData()->itemList[i]);
@@ -108,54 +118,95 @@ s32 mapCalcSellValue() {
         } else
             svList[i] = itemGetSellValue(getCurLoopData()->itemList[i]);
     }
-    if (getCurLoopData()->itemCnt > 10)
-        getCurLoopData()->itemCnt = 10;
+    if (getCurLoopData()->itemCnt > cfg->maxItems)
+        getCurLoopData()->itemCnt = cfg->maxItems;
     for (s32 i = 0; i < getCurLoopData()->itemCnt; i += 1) {
         sellValue += svList[i];
     }
     return sellValue;
 }
 
-char * itemGetName(s32 itemId) {
-    for (s32 i = 0; itemDataTable[i].name != NULL; i += 1) {
-        if (itemId == itemDataTable[i].itemId)
-            return itemDataTable[i].name;
+void createItemNPCDataTables() {
+    s32 i = 0, j = 0, n = 0, m = 0;
+    bool dupe;
+    for (i = 0; i < gp->enemyListCnt; i += 1) {
+        dupe = false;
+        for (j = 0; j < 50; j += 1) {
+            if (gp->npcData[j].tribeId == gp->enemyList[i]) {
+                dupe = true;
+                break;
+            }
+        }
+        if (!dupe) {
+            for (j = 0; npcData[j].name != NULL; j += 1) {
+                if (gp->enemyList[i] == npcData[j].tribeId) {
+                    memcpy(&gp->npcData[gp->npcDataNum], &npcData[j], sizeof(NPCData));
+                    // printf("%s recognized as unique\n", npcData[j].name);
+                    gp->npcDataNum += 1;
+                    break;
+                }
+            }
+        }
     }
-    assertf(false, "Item name for ID %d not found", itemId);
-    return NULL;
+    for (i = 0; i < gp->npcDataNum; i += 1) {
+        for (j = 0; j < gp->npcData[i].itemCnt; j += 1) {
+            for (n = 0; n < 50; n += 1) {
+                if (gp->npcData[i].items[j].itemId == gp->itemData[n].itemId)
+                    break;
+                if (gp->itemData[n].itemId == 0) {
+                    for (m = 0; itemDataTable[m].name != NULL; m += 1) {
+                        if (gp->npcData[i].items[j].itemId == itemDataTable[m].itemId) {
+                            memcpy(&gp->itemData[gp->itemDataNum], &itemDataTable[m], sizeof(ItemData));
+                            // printf("%s recognized as unique\n", itemDataTable[m].name);
+                            gp->itemDataNum += 1;
+                            n = 50;
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+    }
+    // printf("gp->npcDataNum = %d, gp->itemDataNum = %d\n", gp->npcDataNum, gp->itemDataNum);
 }
-
-char * condition_types[4] = {"First 3 Piranhas", "Center 2D Piranhas", "Center 3D Piranhas", "No Piranhas"};
 
 bool beanBurrito() {
     gp->iterationNum += 1;
+    assert(gp->iterationNum <= MAX_CANDIDATES, "Seed Overflow!! Please lower your standards.");
     RANDOM_SEED = gp->seed;
     frand(100); // Call RNG once to increment RANDOM_SEED
     gp->seed = RANDOM_SEED;
     gp->seeds[gp->iterationNum] = RANDOM_SEED;
     getCurLoopData()->itemCnt = 0;
-    getCurLoopData()->piranhasDroppedAnything = false;
-    getCurLoopData()->condition_type = gp->curLoop;
     s32 sellValue = mapCalcSellValue();
-    if (sellValue >= gp->sellValueThreshold) {
-        getCurLoopData()->advanceNum = gp->iterationNum;
-        getCurLoopData()->seed = gp->seed;
-        getCurLoopData()->sellValue = sellValue;
-        if (getCurLoopData()->piranhasDroppedAnything == false) {
-            getCurLoopData()->condition_type = 3;
-            // printf("Seed %X found in %d advances. Condition: Kill %s\n", gp->seed, gp->iterationNum, condition_types[3]);
+    switch (cfg->reportType) {
+    case 0: // Sell Value
+        if (sellValue >= cfg->sellValue) {
+            getCurLoopData()->advanceNum = gp->iterationNum;
+            getCurLoopData()->seed = gp->seed;
+            getCurLoopData()->sellValue = sellValue;
+            //printf("Iteration %d successful, returned sell value %d\n", gp->iterationNum, getCurLoopData()->sellValue);
+            /*printf("SV of %d coins. Items (%d): ", sellValue, getCurLoopData()->itemCnt);
+            for (s32 i = 0; i < getCurLoopData()->itemCnt; i += 1) {
+                if (i != (getCurLoopData()->itemCnt - 1))
+                    printf("%s, ", itemGetName(getCurLoopData()->itemList[i]));
+                else
+                    printf("%s\n\n", itemGetName(getCurLoopData()->itemList[i]));
+            }*/
+            return true;
         }
-        /*else {
-            printf("Seed %X found in %d advances. Condition: Kill %s\n", gp->seed, gp->iterationNum, condition_types[gp->curLoop]);
+        break;
+    case 1: // Item Count
+        if (getCurLoopData()->itemCnt >= cfg->itemCount) {
+            getCurLoopData()->advanceNum = gp->iterationNum;
+            getCurLoopData()->seed = gp->seed;
+            //printf("Iteration %d successful, returned item count %d\n", gp->iterationNum, getCurLoopData()->itemCnt);
+            return true;
         }
-        printf("SV of %d coins. Items (%d): ", sellValue, getCurLoopData()->itemCnt);
-        for (s32 i = 0; i < getCurLoopData()->itemCnt; i += 1) {
-            if (i != (getCurLoopData()->itemCnt - 1))
-                printf("%s, ", itemGetName(getCurLoopData()->itemList[i]));
-            else
-                printf("%s\n\n", itemGetName(getCurLoopData()->itemList[i]));
-        }*/
-        return true;
+        break;
     }
+    /*if ((gp->iterationNum % 1000000U) == 0) {
+        printf("\r%u seeds processed...", ((u32)(gp->iterationNum / 1000000U) * 1000000U));
+    }*/
     return false;
 }

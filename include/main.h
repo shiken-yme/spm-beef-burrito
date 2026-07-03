@@ -3,31 +3,35 @@
 #include <common.h>
 #include <stdarg.h>
 #include <stdio.h>
+#include <npcdata.h>
 
 typedef struct {
-    s32 itemList[20];
+    s32 itemList[64];
     s32 itemCnt;
-    bool piranhasDroppedAnything;
     s32 advanceNum;
     s32 seed;
-    s32 condition_type;
     s32 sellValue;
 } SFLoopData;
 
 typedef struct {
-    s32 enemyList[27];
-    s32 enemyIdxBlacklist[27];
-    s32 tribeBlacklist[27];
+    s32 enemyList[64];
+    s32 enemyIdxBlacklist[64];
+    s32 tribeBlacklist[64];
     s32 enemyListCnt;
     s32 enemyIdxBlacklistCnt;
     s32 tribeBlacklistCnt;
+    ItemData itemData[50];
+    NPCData npcData[50];
+    s32 itemDataNum;
+    s32 npcDataNum;
     s32 sellValueThreshold;
     u32 iterationNum;
     s32 seed;
     s32 startingSeed;
     s32 * seeds;
+    bool conditionIrrelevant;
     s32 curLoop;
-    SFLoopData Loop[3];
+    SFLoopData Loop[16];
 } SFGlobals;
 
 extern SFGlobals * gp;
