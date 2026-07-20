@@ -17,7 +17,7 @@ SFLoopData * getCurLoopData() {
 }
 
 void reportSeedInstructions(SFLoopData * data, s32 fracAdvNum) {
-    s32 stylish2s = 0, stylishes = 0, bounces = 0, flips = 0, lastCondition = -1, n = data->advanceNum - 7;
+    s32 stylish2s = 0, stylishes = 0, bounces = 0, flips = 0, lastCondition = -1, n = data->advanceNum - 4;
     while ((n - 503) >= 0) {
         stylishes += 1;
         n -= 503;
@@ -93,7 +93,7 @@ void reportSeedInfo(SFLoopData * data, s32 chosen_n) {
 // Todo: refactor to take one of various factors in settings.nerr into consideration
 s32 getBestLoopData() {
     s32 n = 0;
-    gp->conditionIrrelevant = true;
+    s32 eqConditions = 1;
     if (cfg->indexBlacklistLoopCount > 1) {
         for (s32 i = 1; i < cfg->indexBlacklistLoopCount; i += 1) {
             if (gp->Loop[n].advanceNum > gp->Loop[i].advanceNum)
@@ -103,20 +103,25 @@ s32 getBestLoopData() {
                 case 0: // Sell Value
                     if (gp->Loop[n].sellValue < gp->Loop[i].sellValue)
                         n = i;
+                    if (gp->Loop[n].sellValue == gp->Loop[i].sellValue)
+                        eqConditions += 1;
                     break;
                 case 1: // Item Count
                     if (gp->Loop[n].itemCnt < gp->Loop[i].itemCnt)
                         n = i;
+                    if (gp->Loop[n].itemCnt == gp->Loop[i].itemCnt)
+                        eqConditions += 1;
                     break;
                 case 2: // Has Item Type
                     assert(false, "Not yet supported");
                     break;
                 }
-            } else {
-                gp->conditionIrrelevant = false;
             }
         }
     }
+    gp->conditionIrrelevant = false;
+    if (eqConditions == cfg->indexBlacklistLoopCount)
+        gp->conditionIrrelevant = true;
     return n;
 }
 
@@ -139,6 +144,7 @@ retry:
     // Once current seed is determined, find the *first* available seed that matches our desired parameters
     // Checks for 3 separate enemy blacklist conditions & accounts for the condition not being necessary
 retry2:
+    memset(gp->seeds, 0, (sizeof(s32) * MAX_CANDIDATES));
     bool exec = false;
     if (cfg->indexBlacklistLoopCount == 0) {
         gp->seed = gp->startingSeed;

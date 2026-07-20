@@ -3,8 +3,8 @@
 # upd, previous, updn taken from idk
 
 
-startRNG = 0x6D28FD77
-advances = 2829
+startRNG = 0x574be2e1
+advances = 1000
 
 multi = 0x5D588B65
 addi = 1

@@ -17,21 +17,21 @@ typedef struct {
     s32 enemyList[64];
     s32 enemyIdxBlacklist[64];
     s32 tribeBlacklist[64];
+    ItemData itemData[50];
+    NPCData npcData[50];
+    SFLoopData Loop[16];
     s32 enemyListCnt;
     s32 enemyIdxBlacklistCnt;
     s32 tribeBlacklistCnt;
-    ItemData itemData[50];
-    NPCData npcData[50];
     s32 itemDataNum;
     s32 npcDataNum;
+    s32 curLoop;
     s32 sellValueThreshold;
     u32 iterationNum;
     s32 seed;
     s32 startingSeed;
     s32 * seeds;
     bool conditionIrrelevant;
-    s32 curLoop;
-    SFLoopData Loop[16];
 } SFGlobals;
 
 extern SFGlobals * gp;
